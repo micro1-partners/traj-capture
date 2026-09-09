@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 __PLUGIN_ROOT__/scripts/capture.py start --tool codex",
+            "command": "python3 \"__PLUGIN_ROOT__/scripts/capture.py\" start --tool codex",
             "timeout": 60
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 __PLUGIN_ROOT__/scripts/capture.py turn --tool codex",
+            "command": "python3 \"__PLUGIN_ROOT__/scripts/capture.py\" turn --tool codex",
             "timeout": 30
           }
         ]
@@ -28,8 +28,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 __PLUGIN_ROOT__/scripts/capture.py end --tool codex",
-            "timeout": 30
+            "command": "python3 \"__PLUGIN_ROOT__/scripts/capture.py\" end --tool codex",
+            "timeout": 3
           }
         ]
       }

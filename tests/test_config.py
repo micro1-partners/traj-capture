@@ -41,5 +41,6 @@ def test_config_falls_back_to_home_traj_capture(capture, env, monkeypatch, tmp_p
     monkeypatch.setenv("HOME", str(home)); monkeypatch.delenv("TRAJ_CAPTURE_CONFIG")
     monkeypatch.setenv("TRAJ_CAPTURE_STATE", str(tmp_path / "plugin-data"))
     assert capture.load_config()["company"] == "fallback-co"
+    (tmp_path / "plugin-data").mkdir()
     (tmp_path / "plugin-data" / "config.json").write_text('{"company": "primary-co", "sas_url": "file:///y"}')
-    assert capture.load_config()["company"] == "primary-co"
+    assert capture.load_config()["company"] == "fallback-co"

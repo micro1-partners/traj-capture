@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/capture.py start --tool auto",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/capture.py\" start --tool auto",
             "timeout": 60
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/capture.py turn --tool auto",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/capture.py\" turn --tool auto",
             "timeout": 30
           }
         ]
@@ -28,8 +28,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/capture.py end --tool auto",
-            "timeout": 30
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/capture.py\" end --tool auto",
+            "timeout": 3
           }
         ]
       }
