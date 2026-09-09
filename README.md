@@ -7,30 +7,61 @@ stored only on the machine.
 
 ## Install (engineer, once)
 
+Requirements: Python 3.9+ on your PATH. No other dependencies. Nothing runs in the path
+of your agent, and nothing on your machine is ever deleted.
+
+### Claude Code
+
     claude plugin marketplace add micro1-partners/traj-capture
     claude plugin install traj-capture@micro1-traj
+
+Then, inside Claude Code, once:
+
     /traj-capture:setup <ENROLLMENT-CODE>
 
-Enrollment talks only to `data.micro1.ai` (the company portal); the plugin never contacts CDP.
-Uploads go straight to the company's `<slug>-traj` container with a create+write SAS that
-cannot read, list, or delete anything.
+It replies `probe ok` with your company name. Every session from now on is captured.
 
 ### Codex
 
-Same repo, same plugin — it ships a `.codex-plugin` manifest and an `.agents/plugins`
-marketplace, and the hooks detect which tool fired them:
+Codex CLI:
 
     codex plugin marketplace add micro1-partners/traj-capture
-    # install "traj-capture" from the Plugins directory, then enroll once:
-    python3 "$PLUGIN_ROOT"/scripts/capture.py setup --code <ENROLLMENT-CODE>
 
-No plugin support in your Codex build? Clone the repo and register the hooks by hand
+Codex Desktop reads its config file instead. Add this to `~/.codex/config.toml` and restart
+the app:
+
+    [marketplaces.micro1-traj]
+    source_type = "git"
+    source = "https://github.com/micro1-partners/traj-capture.git"
+    ref = "main"
+
+    [plugins."traj-capture@micro1-traj"]
+    enabled = true
+
+Then enroll once from a terminal:
+
+    python3 ~/.codex/plugins/cache/micro1-traj/traj-capture/0.2.0/scripts/capture.py setup --code <ENROLLMENT-CODE>
+
+Use both tools? Enroll once; they share the same config in `~/.traj-capture`.
+
+If your Codex build has no plugin support, clone this repo and register the hooks by hand
 (merges into `$CODEX_HOME/hooks.json`, idempotent, keeps your other hooks):
 
     python3 traj-capture/plugins/traj-capture/scripts/capture.py install-codex --code <ENROLLMENT-CODE>
 
-Codex's transcript is the rollout file under `$CODEX_HOME/sessions/`; the plugin finds it
-by session id when the hook payload carries `transcript_path: null`.
+### Check it is working
+
+    tail -5 ~/.traj-capture/capture.log
+
+After your next session ends you will see a `finalized` line.
+
+### What the plugin does with your credential
+
+Enrollment talks only to `data.micro1.ai`, the company portal, and exchanges the code for an
+upload credential that is stored only on your machine. Uploads go straight to your company's
+`<slug>-traj` container with a create+write SAS that cannot read, list, or delete anything.
+Codex's transcript is the rollout file under `$CODEX_HOME/sessions/`; the plugin finds it by
+session id when the hook payload carries `transcript_path: null`.
 
 ## Production agents (shipper libraries)
 
