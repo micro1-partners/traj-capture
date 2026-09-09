@@ -1,0 +1,15 @@
+{
+  "name": "micro1-traj",
+  "owner": {
+    "name": "micro1",
+    "email": "shanie@micro1.ai"
+  },
+  "plugins": [
+    {
+      "name": "traj-capture",
+      "source": "./plugins/traj-capture",
+      "description": "Session capture for corpus trajectories"
+    }
+  ],
+  "description": "micro1 corpus-trajectory capture plugins"
+}

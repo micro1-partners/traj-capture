@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "run_id": "run_20260908T140311Z_9f3a2c",
+  "scored_at": "2026-09-09T09:12:00Z",
+  "expert_id": "exp_7c1",
+  "score": 4,
+  "scale": "1-5",
+  "labels": [
+    "correct-root-cause",
+    "missing-customer-notification"
+  ],
+  "notes": "Right fix, but should have drafted the customer reply.",
+  "per_turn": [
+    {
+      "turn": 2,
+      "score": 5,
+      "notes": "Good first tool choice."
+    }
+  ]
+}

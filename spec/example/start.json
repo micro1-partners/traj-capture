@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "run_id": "run_20260908T140311Z_9f3a2c",
+  "parent_run_id": null,
+  "agent_name": "acme-triage",
+  "agent_version": "2.14.0",
+  "instance": "prod-us-1",
+  "model": "claude-sonnet-5",
+  "provider": "anthropic",
+  "started_at": "2026-09-08T14:03:11Z",
+  "client": {
+    "name": "traj-shipper-node",
+    "version": "0.1.0"
+  },
+  "metadata": {
+    "ticket_id": "T-48213"
+  }
+}

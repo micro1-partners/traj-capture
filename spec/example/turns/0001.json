@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "run_id": "run_20260908T140311Z_9f3a2c",
+  "turn": 1,
+  "role": "user",
+  "ts": "2026-09-08T14:03:11Z",
+  "content": "Customer reports duplicate invoice #8812. Investigate and propose a fix."
+}

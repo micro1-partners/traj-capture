@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "run_id": "run_20260908T140311Z_9f3a2c",
+  "turn": 2,
+  "role": "assistant",
+  "ts": "2026-09-08T14:03:14Z",
+  "content": "I'll look up the invoice history first.",
+  "tool_calls": [
+    {
+      "name": "billing.lookup_invoice",
+      "args": {
+        "invoice_id": "8812"
+      },
+      "result": {
+        "count": 2,
+        "ids": [
+          "inv_8812",
+          "inv_8812_dup"
+        ]
+      },
+      "error": null,
+      "duration_ms": 212
+    }
+  ],
+  "raw_request": {
+    "model": "claude-sonnet-5",
+    "max_tokens": 2048,
+    "system": "You are Acme triage. Resolve billing issues using the provided tools.",
+    "tools": [
+      {
+        "name": "billing.lookup_invoice",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "invoice_id": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    ],
+    "messages": [
+      {
+        "role": "user",
+        "content": "Customer reports duplicate invoice #8812. Investigate and propose a fix."
+      }
+    ]
+  },
+  "raw_response": {
+    "id": "msg_01",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 412,
+      "output_tokens": 63
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "I'll look up the invoice history first."
+      },
+      {
+        "type": "tool_use",
+        "id": "tu_01",
+        "name": "billing.lookup_invoice",
+        "input": {
+          "invoice_id": "8812"
+        }
+      }
+    ]
+  },
+  "latency_ms": 1840
+}

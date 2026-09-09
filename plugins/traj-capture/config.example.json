@@ -1,0 +1,11 @@
+{
+  "company": "example-co",
+  "sas_url": "https://ACCOUNT.blob.core.windows.net/CONTAINER?sv=...&si=partner-rwdl&sr=c&sig=...",
+  "sas_expires_at": "2026-12-01T00:00:00Z",
+  "enrollment_code": "EXAMPLE-0000",
+  "enroll_url": "https://data.micro1.ai",
+  "repo_allowlist": [],
+  "capture_non_repo": true,
+  "enabled": true,
+  "tools_enabled": ["claude_code", "codex"]
+}

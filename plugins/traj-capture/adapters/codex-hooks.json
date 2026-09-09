@@ -1,0 +1,38 @@
+{
+  "description": "traj-capture hooks for Codex. Prefer `python3 <plugin>/scripts/capture.py install-codex`, which merges these into $CODEX_HOME/hooks.json with the real path; this file is the reference shape.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 __PLUGIN_ROOT__/scripts/capture.py start --tool codex",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 __PLUGIN_ROOT__/scripts/capture.py turn --tool codex",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 __PLUGIN_ROOT__/scripts/capture.py end --tool codex",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

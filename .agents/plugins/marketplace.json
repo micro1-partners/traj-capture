@@ -1,0 +1,20 @@
+{
+  "name": "micro1-traj",
+  "interface": {
+    "displayName": "micro1 trajectory capture"
+  },
+  "plugins": [
+    {
+      "name": "traj-capture",
+      "source": {
+        "source": "local",
+        "path": "./plugins/traj-capture"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

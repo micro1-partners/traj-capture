@@ -1,0 +1,352 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data.micro1.ai/schemas/traj/v1.json",
+  "title": "micro1 trajectory capture, production agents, v1",
+  "description": "Files a production agent lands under <container>/trajectories/<agent_name>/<instance>/<run_id>/. Each file validates against the matching $defs entry. Coding-agent sessions captured by the traj-capture plugin use the same layout but ship the tool's own transcript instead of turns/.",
+  "$defs": {
+    "start": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "schema_version",
+        "run_id",
+        "agent_name",
+        "started_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 8,
+          "description": "Unique per run. Also the blob path segment, so keep it URL-safe."
+        },
+        "parent_run_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Set when this run was spawned by another agent run."
+        },
+        "agent_name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+        },
+        "agent_version": {
+          "type": "string"
+        },
+        "instance": {
+          "type": "string",
+          "description": "Environment or deployment label, e.g. prod-us-1. Second path segment."
+        },
+        "model": {
+          "type": "string"
+        },
+        "provider": {
+          "type": "string",
+          "enum": [
+            "anthropic",
+            "openai",
+            "google",
+            "other"
+          ]
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "client": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Anything the company wants to keep with the run. Never secrets."
+        }
+      }
+    },
+    "turn": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "schema_version",
+        "run_id",
+        "turn",
+        "role",
+        "ts"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "turn": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "1-based, monotonically increasing within the run. File name is turns/%04d.json."
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "user",
+            "assistant",
+            "tool",
+            "system"
+          ]
+        },
+        "ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "content": {
+          "description": "The framework's own transcript entry for this turn, as the company already stores it."
+        },
+        "tool_calls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "args": {},
+              "result": {},
+              "error": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "duration_ms": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          }
+        },
+        "raw_request": {
+          "type": "object",
+          "description": "The exact JSON body sent to the model provider for this turn: model, system, tools, messages, parameters. This is what makes the trajectory replayable."
+        },
+        "raw_response": {
+          "type": "object",
+          "description": "The exact JSON body the provider returned, including usage and stop reason. For streamed responses, the reassembled final message."
+        },
+        "latency_ms": {
+          "type": "number"
+        }
+      }
+    },
+    "end": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "schema_version",
+        "run_id",
+        "ended_at",
+        "status"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "ended_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "failed",
+            "cancelled",
+            "timeout"
+          ]
+        },
+        "error": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "turns": {
+          "type": "integer",
+          "description": "Total turns the agent believes it emitted. Lets us detect gaps."
+        },
+        "outcome": {
+          "description": "Final answer, artifact, or result the agent produced, if any."
+        }
+      }
+    },
+    "feedback": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "schema_version",
+        "run_id",
+        "scored_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "scored_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expert_id": {
+          "type": "string",
+          "description": "Opaque per-expert id. The company keeps the mapping."
+        },
+        "score": {
+          "type": "number"
+        },
+        "scale": {
+          "type": "string",
+          "description": "e.g. 1-5, 0-100, pass/fail"
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string"
+        },
+        "per_turn": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "turn"
+            ],
+            "properties": {
+              "turn": {
+                "type": "integer"
+              },
+              "score": {
+                "type": "number"
+              },
+              "notes": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "run_id",
+        "agent_name",
+        "files"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "agent_name": {
+          "type": "string"
+        },
+        "instance": {
+          "type": "string"
+        },
+        "client": {
+          "type": "object"
+        },
+        "turns_expected": {
+          "type": "integer"
+        },
+        "turns_landed": {
+          "type": "integer"
+        },
+        "dropped_events": {
+          "type": "integer",
+          "description": "Events the shipper had to drop (queue full). Non-zero means the run is incomplete."
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "sha256",
+              "bytes"
+            ],
+            "properties": {
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "bytes": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "run_id",
+        "prefix",
+        "completed_at",
+        "end_state"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "agent_name": {
+          "type": "string"
+        },
+        "prefix": {
+          "type": "string",
+          "description": "trajectories/<agent_name>/<instance>/<run_id>"
+        },
+        "end_state": {
+          "type": "string",
+          "enum": [
+            "observed",
+            "inferred"
+          ]
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "client_version": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

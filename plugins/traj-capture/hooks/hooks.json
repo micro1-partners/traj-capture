@@ -1,0 +1,38 @@
+{
+  "description": "traj-capture: snapshot git state at session start, ship transcript per turn, finalize at session end. Serves Claude Code and Codex (tool detected from the hook payload).",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/capture.py start --tool auto",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/capture.py turn --tool auto",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/capture.py end --tool auto",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

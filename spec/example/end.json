@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "run_id": "run_20260908T140311Z_9f3a2c",
+  "ended_at": "2026-09-08T14:03:41Z",
+  "status": "completed",
+  "error": null,
+  "turns": 2,
+  "outcome": "Duplicate created by a retried webhook. Voided inv_8812_dup and proposed idempotency key on the webhook handler."
+}

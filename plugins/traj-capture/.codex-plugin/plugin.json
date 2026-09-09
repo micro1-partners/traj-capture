@@ -1,0 +1,8 @@
+{
+  "name": "traj-capture",
+  "version": "0.2.0",
+  "description": "Captures coding-agent sessions (raw transcript + git state) into your company's micro1 trajectory container.",
+  "author": {
+    "name": "micro1"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "traj-capture",
+  "description": "Captures coding-agent sessions (raw transcript + git state) into micro1's CDP storage.",
+  "version": "0.2.0",
+  "author": { "name": "micro1" }
+}

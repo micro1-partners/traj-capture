@@ -1,0 +1,41 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  plugin:
+    name: plugin + python shipper
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.9", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ matrix.python }}" }
+      - run: pip install pytest
+      - run: python -m pytest -q
+      - run: python -m pytest -q packages/traj-shipper-py/tests
+      - name: validate payload examples against the schema
+        run: |
+          pip install jsonschema
+          python - <<'PY'
+          import json, jsonschema
+          s = json.load(open("spec/traj-v1.schema.json"))
+          for f, d in [("start","start"),("turns/0001","turn"),("turns/0002","turn"),("end","end"),("feedback","feedback")]:
+              jsonschema.validate(json.load(open(f"spec/example/{f}.json")), {**s, **s["$defs"][d]})
+          print("examples validate")
+          PY
+  node:
+    name: node shipper
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [18, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ matrix.node }}" }
+      - run: npm test
+        working-directory: packages/traj-shipper-node

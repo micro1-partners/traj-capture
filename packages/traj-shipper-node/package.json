@@ -1,0 +1,12 @@
+{
+  "name": "@micro1/traj-shipper",
+  "version": "0.1.0",
+  "description": "Land production-agent runs in micro1 trajectory storage. Fail-open, background upload, zero dependencies.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": ["index.js", "index.d.ts", "README.md"],
+  "engines": { "node": ">=18" },
+  "scripts": { "test": "node --test" },
+  "license": "SEE LICENSE IN ../../LICENSE",
+  "author": "micro1 <shanie@micro1.ai>"
+}
