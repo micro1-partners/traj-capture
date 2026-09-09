@@ -12,13 +12,10 @@ import hashlib
 import json
 import os
 import socket
-import shlex
 import subprocess
 import sys
 import tarfile
 import time
-import tempfile
-from contextlib import contextmanager
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -34,9 +31,6 @@ SHADOW_FILE_CAP = 5 * 1024 * 1024
 SHADOW_MAX_FILES = 20000
 IDLE_SECONDS = 30 * 60
 UPLOAD_RETRIES = 3
-START_SNAPSHOT_SECONDS = 5
-_snapshot_deadline = None
-_snapshot_timed_out = False
 DEFAULT_ENROLL_URL = "https://data.micro1.ai"   # company-facing portal; CDP itself is never reachable from a client
 SHADOW_EXCLUDES = [".git/", "node_modules/", ".venv/", "venv/", "__pycache__/", ".DS_Store"]
 TELEMETRY_ENV = {  # Claude Code writes full API request/response bodies (system prompt, tools, messages) here
@@ -54,9 +48,9 @@ def now_iso() -> str:
 
 # ------------------------------------------------------------------ logging
 def state_root() -> Path:
-    p = os.environ.get("TRAJ_CAPTURE_STATE")
+    p = os.environ.get("TRAJ_CAPTURE_STATE") or os.environ.get("CLAUDE_PLUGIN_DATA")
     root = Path(p) if p else Path.home() / ".traj-capture"
-    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    root.mkdir(parents=True, exist_ok=True)
     return root
 
 
@@ -74,11 +68,15 @@ def plugin_root() -> Path:
 
 
 def config_path() -> Path:
-    """One credential location across hosts; legacy plugin-local configs are not adopted."""
+    """Explicit env path, else the plugin data dir, else ~/.traj-capture (hand-written configs)."""
     p = os.environ.get("TRAJ_CAPTURE_CONFIG")
     if p:
         return Path(p)
-    return Path.home() / ".traj-capture" / "config.json"
+    primary = state_root() / "config.json"
+    fallback = Path.home() / ".traj-capture" / "config.json"
+    if not primary.exists() and fallback.exists():
+        return fallback
+    return primary
 
 
 def enroll_code_file() -> Path:
@@ -102,10 +100,10 @@ def maybe_auto_enroll() -> bool:
             return False
     except (OSError, json.JSONDecodeError):
         pass
+    code = f.read_text().strip().split()[0] if f.read_text().strip() else ""
+    if not code:
+        return False
     try:
-        code = f.read_text().strip()
-        if not code:
-            return False
         _, host_hash = identity()
         enroll_url = enroll_url_from_env()
         data = enroll(enroll_url, code, host_hash)
@@ -169,14 +167,12 @@ class DirSink(Sink):
 class BlobSink(Sink):
     def __init__(self, sas_url: str):
         self.base, self.query = split_sas_url(sas_url)
-        self.before_put = lambda: None
 
     def put(self, rel_path: str, data: bytes, content_type: str = "application/octet-stream") -> None:
         url = f"{self.base}/{urllib.parse.quote(rel_path)}?{self.query}"
         headers = {"x-ms-blob-type": "BlockBlob", "Content-Type": content_type}
         last: Exception | None = None
         for attempt in range(UPLOAD_RETRIES):
-            self.before_put()
             req = urllib.request.Request(url, data=data, method="PUT", headers=headers)
             try:
                 with urllib.request.urlopen(req, timeout=120) as resp:
@@ -202,18 +198,9 @@ def make_sink(sas_url: str) -> Sink:
 
 # ---------------------------------------------------------------------- git
 def run(cmd: list[str], cwd: Path | str, timeout: int = GIT_TIMEOUT, env: dict | None = None) -> str | None:
-    global _snapshot_timed_out
-    if _snapshot_deadline is not None:
-        remaining = _snapshot_deadline - time.monotonic()
-        if remaining <= 0:
-            _snapshot_timed_out = True
-            return None
-        timeout = min(timeout, remaining)
     try:
         r = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True, timeout=timeout, env=env)
     except (OSError, subprocess.TimeoutExpired) as exc:
-        if isinstance(exc, subprocess.TimeoutExpired) and _snapshot_deadline is not None:
-            _snapshot_timed_out = True
         log(f"run failed {cmd[:3]}: {exc!r}")
         return None
     if r.returncode != 0:
@@ -265,11 +252,14 @@ def git_commits_since(root: Path | str, base: str) -> list[dict]:
 
 
 def git_final_diff(root: Path | str, base: str) -> dict:
-    tree = git_worktree_tree(root, "final-diff", "end", pin=False)
-    return git_tree_diff(root, base, tree)
+    # Stage untracked files as intent-to-add so new files show; do not commit.
+    run(["git", "add", "-A", "--intent-to-add"], root)
+    diff = run(["git", "diff", base], root) if base else ""
+    diff, truncated = cap_text(diff or "", FINAL_DIFF_CAP)
+    return {"diff": diff, "truncated": truncated}
 
 
-def git_worktree_tree(root: Path | str, sid: str, label: str, pin: bool = True) -> str:
+def git_worktree_tree(root: Path | str, sid: str, label: str) -> str:
     """Snapshot the whole working tree (tracked + untracked, honoring .gitignore) as a git
     tree object without touching the real index or worktree, and pin it under
     refs/traj-capture/<sid>/<label> so gc keeps it. Returns the tree sha ('' on failure)."""
@@ -283,7 +273,7 @@ def git_worktree_tree(root: Path | str, sid: str, label: str, pin: bool = True) 
         if run(["git", "add", "-A", "."], root, timeout=120, env=env) is None:
             return ""
         tree = run(["git", "write-tree"], root, env=env) or ""
-        if tree and pin:
+        if tree:
             env2 = dict(os.environ, GIT_AUTHOR_NAME="traj-capture", GIT_AUTHOR_EMAIL="traj-capture@micro1.ai",
                         GIT_COMMITTER_NAME="traj-capture", GIT_COMMITTER_EMAIL="traj-capture@micro1.ai")
             commit = run(["git", "commit-tree", tree, "-m", f"traj-capture {label} {sid}"], root, env=env2) or ""
@@ -325,9 +315,6 @@ def _write_shadow_excludes(cwd: Path, shadow_git: Path) -> bool:
     count = 0
     partial = False
     for dirpath, dirnames, filenames in os.walk(cwd):
-        if _snapshot_deadline is not None and time.monotonic() >= _snapshot_deadline:
-            partial = True
-            break
         rel_dir = os.path.relpath(dirpath, cwd)
         dirnames[:] = [d for d in dirnames if f"{d}/" not in SHADOW_EXCLUDES]
         for fn in filenames:
@@ -419,24 +406,9 @@ def resolve_transcript_path(tool: str, hook: dict, sid: str) -> str:
     return tpath
 
 
-def binding(cfg: dict) -> dict:
-    company = cfg.get("company")
-    destination = split_sas_url(cfg.get("sas_url", ""))[0]
-    if not company or not destination:
-        raise ValueError("capture needs a company and destination")
-    return {"company": company, "destination": destination}
-
-
-def company_root(cfg: dict) -> Path:
-    key = hashlib.sha256(json.dumps(binding(cfg), sort_keys=True).encode()).hexdigest()[:24]
-    return state_root() / "companies" / key
-
-
-def session_dir(tool: str, sid: str, cfg: dict | None = None) -> Path:
-    if tool not in PROVIDER_BY_TOOL or not sid or Path(sid).name != sid or sid in (".", ".."):
-        raise ValueError("invalid session identity")
-    d = company_root(cfg or load_config()) / "sessions" / tool / sid
-    d.mkdir(parents=True, exist_ok=True, mode=0o700)
+def session_dir(tool: str, sid: str) -> Path:
+    d = state_root() / "sessions" / tool / sid
+    d.mkdir(parents=True, exist_ok=True)
     return d
 
 
@@ -454,16 +426,10 @@ def read_json(p: Path) -> dict:
 
 
 def write_json(p: Path, data: dict) -> None:
-    p.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    with tempfile.NamedTemporaryFile(mode="w", dir=p.parent, delete=False) as fh:
-        tmp = Path(fh.name)
-        try:
-            json.dump(data, fh, indent=1, sort_keys=True)
-            fh.flush()
-            os.fsync(fh.fileno())
-            os.replace(tmp, p)
-        finally:
-            tmp.unlink(missing_ok=True)
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    with open(tmp, "w") as fh:
+        json.dump(data, fh, indent=1, sort_keys=True)
+    os.replace(tmp, p)
 
 
 def sha256_file(p: Path) -> str:
