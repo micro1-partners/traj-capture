@@ -13,6 +13,12 @@ What a production agent lands, per run, under
 Every file validates against the matching entry in `traj-v1.schema.json` (`$defs.start`,
 `$defs.turn`, …). `example/` is a complete two-turn run.
 
+Use globally unique, URL-safe run IDs and contiguous 1-based turn numbers. Include the
+expected total in `end.turns` to detect missing tail events. A run ending and its capture
+completing are separate: manifests and receipts are issued only once required events
+and their upload acknowledgements reconcile. Late feedback is shipped independently.
+Enable durable spooling for restart recovery. No payload schema change is required.
+
 The one field companies have to add that they usually don't log already is the raw
 provider exchange on each turn: `raw_request` (what was sent to the model) and
 `raw_response` (what came back). That is what makes a trajectory replayable. The system

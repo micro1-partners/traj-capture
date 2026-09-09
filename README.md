@@ -15,8 +15,9 @@ marketplace, installs the plugin in every supported tool on the machine, and sav
 Prefer to read first? `install.sh` is 80 lines, has `--dry-run`, and the native commands below do
 exactly the same thing.
 
-Requirements: Python 3.9+ on your PATH. No other dependencies. Nothing runs in the path
-of your agent, and nothing on your machine is ever deleted.
+Requirements: Python 3.9+ on your PATH. No other dependencies. Session startup takes
+a local snapshot with a five-second Git budget; network uploads run in detached workers.
+Capture does not change your working files or Git staging area.
 
 ### Claude Code
 
@@ -27,16 +28,24 @@ Then, inside Claude Code, once:
 
     /traj-capture:setup <ENROLLMENT-CODE>
 
-It replies `probe ok` with your company name. Every session from now on is captured.
+It replies `probe ok` with your company name. This verifies storage connectivity, not
+hook execution. Verify a new test session using the checks below.
 
 ### Codex
 
     codex plugin marketplace add micro1-partners/traj-capture
-    echo "<ENROLLMENT-CODE>" > ~/.traj-capture/enroll-code
+    mkdir -p ~/.traj-capture
+    (umask 077; printf '%s\n' "<ENROLLMENT-CODE>" > ~/.traj-capture/enroll-code)
 
-The plugin enrolls itself on your next session and deletes the file. Codex Desktop has no
+Install and enable `traj-capture` from that marketplace in your Codex plugin manager.
+Review and trust its hooks before expecting capture to run. See the
+[Codex hook trust instructions](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks).
+
+Without an existing config, the first session schedules enrollment in the background.
+After enrollment succeeds, capture starts with the next **new** session. The enrollment
+session is not backfilled. Successful enrollment consumes the code file. Codex Desktop has no
 CLI: add the marketplace to `~/.codex/config.toml` instead and restart the app, then do the
-`echo` line.
+code-file step.
 
     [marketplaces.micro1-traj]
     source_type = "git"
@@ -46,7 +55,7 @@ CLI: add the marketplace to `~/.codex/config.toml` instead and restart the app, 
     [plugins."traj-capture@micro1-traj"]
     enabled = true
 
-The `echo` line works for Claude Code too, and it is how IT pre-provisions machines: drop the
+The code-file step works for Claude Code too, and it is how IT pre-provisions machines: drop the
 code file alongside the managed plugin settings and nobody types anything. Use both tools?
 Enroll once; they share `~/.traj-capture`.
 
@@ -55,11 +64,18 @@ Enroll once; they share `~/.traj-capture`.
     tail -5 ~/.traj-capture/capture.log
 
 After your next session ends you will see a `finalized` line.
+Verify that its manifest contains a nonempty transcript and matches the uploaded files.
+A run ending is not sufficient evidence that capture completed.
 
 ### Troubleshooting
 
 * `/traj-capture:setup` (Claude Code) with no code re-runs the connection probe and prints recent
   activity. Same thing from a terminal: `python3 <plugin>/scripts/capture.py setup`.
+* To enroll immediately: `python3 <plugin>/scripts/capture.py setup --code <CODE>`.
+* Put `"enabled": false` in the shared config to stop new capture and future upload
+  attempts, including retries. An HTTP request already in flight cannot be recalled.
+  Raw-body logging in Claude settings is separate; turn it off with
+  `python3 <plugin>/scripts/capture.py setup --telemetry off` if required.
 * Codex build without plugin support? Clone this repo and register the hooks by hand (merges into
   `$CODEX_HOME/hooks.json`, idempotent, keeps your other hooks):
   `python3 traj-capture/plugins/traj-capture/scripts/capture.py install-codex --code <ENROLLMENT-CODE>`
@@ -96,14 +112,28 @@ SAS automatically 14 days before expiry by re-exchanging the same code.
         transcript.jsonl, subagents/*.jsonl, start.json, end.json, manifest.json
     <container>/trajectories/_receipts/<session_id>.json
 
-- `raw_api.tar.gz` — the full API request and response bodies for the session,
-  landed next to the transcript when telemetry is enabled.
+- `raw_api.tar.gz`: session-owned requests and explicitly correlated responses, when
+  telemetry is opted into. Responses need a matching `request_id` or `_request_id`.
+  Timestamps and message IDs never determine ownership. Responses without correlation
+  remain unassigned locally, so this is not a raw-exchange completeness guarantee.
 
 ## Local state
 
-`$CLAUDE_PLUGIN_DATA` (or `~/.traj-capture`): `config.json`, `capture.log`, and
-one folder per session with sidecars, markers and receipts. Nothing is ever
-deleted locally.
+Both hosts use `~/.traj-capture/config.json` (owner-only permissions). State defaults to
+`~/.traj-capture`, with sessions under `companies/<binding-hash>/sessions/<tool>/<session-id>`.
+Company/destination bindings exclude the SAS query, allowing normal credential rotation.
+`TRAJ_CAPTURE_CONFIG` and `TRAJ_CAPTURE_STATE` are explicit overrides.
+
+Changing enrollment never reassigns previous sessions. Re-enroll the original company to
+resume its bound uploads. Legacy plugin-local configs, unbound sessions and already landed
+captures are not automatically migrated or reclassified. Retain them for an operator to
+verify ownership and completeness. This upgrade does not clean up existing customer data.
+Successful enrollment consumes the code file; old uncaptured request bodies are pruned.
+Ambiguous responses are retained for an explicit retention review.
+
+Shadow/non-repository objects remain local. Their hashes alone are not reconstructable
+starting states, and the quality checker reports that limitation. Snapshot timeouts are
+explicitly marked incomplete. Full starting-state exports are not included in this release.
 
 ## Development
 
