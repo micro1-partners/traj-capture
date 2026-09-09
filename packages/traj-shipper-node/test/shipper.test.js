@@ -38,9 +38,9 @@ test('public methods never throw even when the sink explodes', async () => {
   _DirSink.prototype.put = async () => { throw new Error('blob down'); };
   try {
     cap.start('r', {}); cap.turn('r', 1, {}); cap.end('r'); cap.feedback('r', {});
-    await cap.flush(5000);
+    assert.equal(await cap.flush(50), false);
     assert.equal(cap.stats.failed, 5); assert.equal(cap.stats.uploaded, 0);
-  } finally { _DirSink.prototype.put = orig; }
+  } finally { await cap.close(0); _DirSink.prototype.put = orig; }
 });
 
 test('bad input is swallowed', async () => {
@@ -74,7 +74,8 @@ test('spool survives restart and reships', async () => {
   _DirSink.prototype.put = async () => { throw new Error('blob down'); };   // simulate: never reached blob
   const cap = mk(root, { spoolDir: spool });
   cap.start('r', {}); cap.turn('r', 1, { a: 1 }); cap.end('r');
-  await cap.flush(2000);
+  await cap.flush(50);
+  await cap.close(0);
   _DirSink.prototype.put = orig;
   assert.ok(fs.existsSync(path.join(spool, 'r/turns/0001.json')) && fs.existsSync(path.join(spool, 'r/.finalize')));
   assert.ok(!fs.existsSync(path.join(root, 'blob/trajectories')));
@@ -110,5 +111,6 @@ test('403 forces re-enroll', async () => {
     cap.start('r', {}); await cap.flush(5000);
     cap.turn('r', 1, {}); await cap.flush(5000);
   } finally { _DirSink.prototype.put = orig; }
-  assert.equal(enrolls, 2); assert.equal(cap.stats.failed, 1); assert.equal(cap.stats.uploaded, 1);
+  assert.equal(enrolls, 2); assert.equal(cap.stats.failed, 1); assert.equal(cap.stats.uploaded, 2);
+  assert.ok(fs.existsSync(path.join(root, 'blob/trajectories/a/default/r/start.json')));
 });

@@ -25,12 +25,12 @@ export class TrajCapture {
   constructor(opts: TrajCaptureOptions);
   static init(opts: TrajCaptureOptions): TrajCapture;
   readonly stats: TrajStats;
-  /** All four return immediately and never throw. */
+  /** Event methods never throw; optional durable spooling performs local disk I/O. */
   start(runId: string, meta?: Record<string, unknown>): void;
   turn(runId: string, n: number, turn: Record<string, unknown>): void;
   end(runId: string, status?: Record<string, unknown>): void;
   feedback(runId: string, fb: Record<string, unknown>): void;
-  /** Wait (bounded) for the queue to drain. Resolves true if empty. */
+  /** Wait (bounded) for queued work and retries. False while reconciliation is pending. */
   flush(timeoutMs?: number): Promise<boolean>;
   close(timeoutMs?: number): Promise<void>;
 }
