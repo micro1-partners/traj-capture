@@ -8,7 +8,7 @@ def test_identity_is_stable_12_hex(capture, env):
 
 def test_session_dir_and_prefix(capture, env):
     d = capture.session_dir("claude_code", "abc")
-    assert d == env["state"] / "sessions" / "claude_code" / "abc"
+    assert d == capture.company_root(capture.load_config()) / "sessions" / "claude_code" / "abc"
     assert d.is_dir()
     assert capture.remote_prefix("codex", "u1", "s1") == "trajectories/codex/u1/s1"
 

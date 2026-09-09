@@ -25,7 +25,7 @@ def test_sweep_leaves_active_session_alone(capture, env, make_repo):
     repo = make_repo()
     start_session(capture, env, repo, "w2")
     capture.main(["sweep"], stdin_text="{}")
-    assert not (env["state"] / "sessions/claude_code/w2/receipt.json").exists()
+    assert not (capture.company_root(capture.load_config()) / "sessions/claude_code/w2/receipt.json").exists()
 
 
 def test_sweep_retries_marked_session_after_failed_worker(capture, env, make_repo, monkeypatch):
@@ -38,10 +38,10 @@ def test_sweep_retries_marked_session_after_failed_worker(capture, env, make_rep
         return orig(self, rel, data, content_type)
     monkeypatch.setattr(capture.DirSink, "put", failing_put)
     capture.main(["end"], stdin_text=json.dumps({"session_id": "w3", "transcript_path": str(t), "cwd": str(repo), "reason": "other"}))
-    assert not (env["state"] / "sessions/claude_code/w3/receipt.json").exists()
+    assert not (capture.company_root(capture.load_config()) / "sessions/claude_code/w3/receipt.json").exists()
     monkeypatch.setattr(capture.DirSink, "put", orig)
     capture.main(["sweep"], stdin_text="{}")
-    assert (env["state"] / "sessions/claude_code/w3/receipt.json").exists()
+    assert (capture.company_root(capture.load_config()) / "sessions/claude_code/w3/receipt.json").exists()
 
 
 class _Resp:
@@ -92,7 +92,7 @@ def test_sweep_does_not_finalize_fresh_session_without_transcript(capture, env, 
     t = env["tmp"] / "w4.jsonl"  # never created: Claude Code writes it after the first message
     capture.main(["start"], stdin_text=json.dumps({"session_id": "w4", "transcript_path": str(t), "cwd": str(repo), "source": "startup"}))
     capture.main(["sweep"], stdin_text="{}")
-    assert not (env["state"] / "sessions/claude_code/w4/receipt.json").exists()
+    assert not (capture.company_root(capture.load_config()) / "sessions/claude_code/w4/receipt.json").exists()
 
 
 def test_enroll_url_defaults_to_portal_and_honors_legacy_key(capture, monkeypatch):

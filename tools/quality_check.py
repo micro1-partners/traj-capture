@@ -42,9 +42,12 @@ def check(session_dir: Path) -> dict:
     checks["manifest_present"] = bool(manifest)
     checks["end_observed"] = end.get("end_state") == "observed"
     if mode == "git":
-        checks["start_recoverable"] = bool(start.get("base_commit")) and bool(start.get("repo_remote"))
+        checks["start_recoverable"] = (bool(start.get("base_commit")) and bool(start.get("repo_remote"))
+                                       and not start.get("dirty_untracked")
+                                       and not start.get("dirty_diff_truncated")
+                                       and start.get("snapshot_complete", True))
     elif mode == "shadow":
-        checks["start_recoverable"] = bool(start.get("shadow_base"))
+        checks["start_recoverable"] = False  # the local shadow objects are not uploaded
     else:
         checks["start_recoverable"] = False
     if mode == "shadow":
@@ -62,7 +65,9 @@ def check(session_dir: Path) -> dict:
     symptoms = []
     if not checks["transcript_present"] or not checks["manifest_present"]:
         symptoms.append(SYMPTOMS["incomplete_trace"])
-    if not checks["end_observed"]:
+    if (not checks["end_observed"] or start.get("snapshot_complete") is False
+            or start.get("dirty_diff_truncated") or end.get("final_diff_truncated")
+            or end.get("agent_diff_truncated")):
         symptoms.append(SYMPTOMS["truncated"])
     if not checks["start_recoverable"]:
         symptoms.append(SYMPTOMS["unrecoverable_start"])

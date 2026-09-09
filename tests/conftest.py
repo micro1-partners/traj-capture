@@ -35,6 +35,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setenv("TRAJ_CAPTURE_STATE", str(state))
     monkeypatch.setenv("TRAJ_CAPTURE_CONFIG", str(cfg))
     monkeypatch.setenv("TRAJ_CAPTURE_INLINE", "1")
+    monkeypatch.setenv("TRAJ_CAPTURE_ENROLL_CODE_FILE", str(tmp_path / "pending-enroll-code"))
     monkeypatch.setenv("GIT_AUTHOR_NAME", "Test User")
     monkeypatch.setenv("GIT_AUTHOR_EMAIL", "test@example.com")
     monkeypatch.setenv("GIT_COMMITTER_NAME", "Test User")

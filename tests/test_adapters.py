@@ -1,4 +1,5 @@
 import json
+import shlex
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1] / "plugins" / "traj-capture"
@@ -8,11 +9,12 @@ def test_claude_code_hooks_cover_three_events_and_are_synchronous():
     h = json.loads((ROOT / "hooks" / "hooks.json").read_text())["hooks"]
     assert set(h) == {"SessionStart", "Stop", "SessionEnd"}
     cmd = lambda ev: h[ev][0]["hooks"][0]
-    assert cmd("SessionStart")["command"].endswith("capture.py start --tool auto")
+    assert shlex.split(cmd("SessionStart")["command"])[-3:] == ["start", "--tool", "auto"]
     # Stop and SessionEnd run synchronously (async hooks are abandoned when `claude -p` exits);
     # the script itself detaches the slow work so both finish well inside their budgets.
-    assert "async" not in cmd("Stop") and cmd("Stop")["command"].endswith("capture.py turn --tool auto")
-    assert "async" not in cmd("SessionEnd") and cmd("SessionEnd")["command"].endswith("capture.py end --tool auto")
+    assert "async" not in cmd("Stop") and shlex.split(cmd("Stop")["command"])[-3:] == ["turn", "--tool", "auto"]
+    assert "async" not in cmd("SessionEnd") and shlex.split(cmd("SessionEnd")["command"])[-3:] == ["end", "--tool", "auto"]
+    assert cmd("SessionEnd")["timeout"] == 3
     assert all("${CLAUDE_PLUGIN_ROOT}" in cmd(e)["command"] for e in h)
 
 
@@ -20,7 +22,7 @@ def test_codex_adapter_mirrors_events_with_codex_tool_flag():
     h = json.loads((ROOT / "adapters" / "codex-hooks.json").read_text())["hooks"]
     assert set(h) == {"SessionStart", "Stop", "SessionEnd"}
     for ev in h:
-        assert h[ev][0]["hooks"][0]["command"].endswith(f"capture.py {dict(SessionStart='start', Stop='turn', SessionEnd='end')[ev]} --tool codex")
+        assert shlex.split(h[ev][0]["hooks"][0]["command"])[-3:] == [dict(SessionStart='start', Stop='turn', SessionEnd='end')[ev], "--tool", "codex"]
 
 
 def test_plugin_manifest_and_marketplace_agree():

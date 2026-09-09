@@ -6,14 +6,14 @@ from tests.conftest import _git
 
 def _req(raw, name, sid, mtime):
     p = raw / f"{name}.request.json"
-    p.write_text(json.dumps({"model": "m", "system": "s", "tools": [], "messages": [],
+    p.write_text(json.dumps({"request_id": name, "model": "m", "system": "s", "tools": [], "messages": [],
                              "metadata": {"user_id": json.dumps({"session_id": sid})}}))
     os.utime(p, (mtime, mtime)); return p
 
 
 def _resp(raw, name, mtime):
     p = raw / f"{name}.response.json"
-    p.write_text(json.dumps({"id": name, "content": []})); os.utime(p, (mtime, mtime)); return p
+    p.write_text(json.dumps({"request_id": name.removeprefix("req_"), "id": name, "content": []})); os.utime(p, (mtime, mtime)); return p
 
 
 def test_collect_moves_only_this_sessions_bodies(capture, tmp_path):
@@ -81,6 +81,8 @@ def test_sweep_prunes_old_orphan_raw_bodies_but_keeps_known_and_fresh(capture, e
     _req(raw, "orphan_fresh", "zz", time.time())
     capture.main(["sweep"], stdin_text="{}")
     left = sorted(p.name for p in raw.iterdir())
-    assert "orphan_old.request.json" not in left and "req_orphan_old.response.json" not in left
+    assert "orphan_old.request.json" not in left and "req_orphan_old.response.json" in left
     assert "orphan_fresh.request.json" in left
-    assert "known_old.request.json" in left  # known session's files are collected by finalize, never pruned
+    assert "known_old.request.json" not in left  # sweep now collects active-session uploads too
+    sdir = capture.session_dir("claude_code", "k1")
+    assert (sdir / "raw-api/known_old.request.json").exists()
