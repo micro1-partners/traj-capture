@@ -7,6 +7,14 @@ stored only on the machine.
 
 ## Install (engineer, once)
 
+One line, if your security policy is fine with a downloaded installer (it registers the
+marketplace, installs the plugin in every supported tool on the machine, and saves the code):
+
+    curl -fsSL https://raw.githubusercontent.com/micro1-partners/traj-capture/main/install.sh | sh -s -- <ENROLLMENT-CODE>
+
+Prefer to read first? `install.sh` is 80 lines, has `--dry-run`, and the native commands below do
+exactly the same thing.
+
 Requirements: Python 3.9+ on your PATH. No other dependencies. Nothing runs in the path
 of your agent, and nothing on your machine is ever deleted.
 
