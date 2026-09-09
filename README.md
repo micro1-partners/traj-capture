@@ -7,57 +7,55 @@ stored only on the machine.
 
 ## Install (engineer, once)
 
-One line, if your security policy is fine with a downloaded installer (it registers the
-marketplace, installs the plugin in every supported tool on the machine, and saves the code):
-
-    curl -fsSL https://raw.githubusercontent.com/micro1-partners/traj-capture/main/install.sh | sh -s -- <ENROLLMENT-CODE>
-
-Prefer to read first? `install.sh` is 80 lines, has `--dry-run`, and the native commands below do
-exactly the same thing.
-
 Requirements: Python 3.9+ on your PATH. No other dependencies. Session startup takes
 a local snapshot with a five-second Git budget; network uploads run in detached workers.
 Capture does not change your working files or Git staging area.
 
-### Claude Code
+### 1. Run the setup helper
 
-    claude plugin marketplace add micro1-partners/traj-capture
-    claude plugin install traj-capture@micro1-traj
+If your security policy permits a downloaded installer, run this in a terminal,
+replacing the placeholder with the enrollment code supplied by micro1:
 
-Then, inside Claude Code, once:
+    curl -fsSL https://raw.githubusercontent.com/micro1-partners/traj-capture/main/install.sh | sh -s -- '<ENROLLMENT-CODE>'
 
-    /traj-capture:setup <ENROLLMENT-CODE>
+Review [install.sh](install.sh) first if required. It supports `--dry-run` to preview
+actions without changing anything. Treat the code as a credential; do not share it
+in screenshots or logs, and follow your company's policy for shell-history handling.
+For an alternative to the helper, see [Manual installation](#manual-installation).
 
-It replies `probe ok` with your company name. This verifies storage connectivity, not
-hook execution. Verify a new test session using the checks below.
+The helper saves the code locally and handles the tools it detects:
 
-### Codex
+| Tool detected | What the helper currently does |
+| --- | --- |
+| Claude Code | Registers the marketplace and installs the plugin. |
+| Codex CLI | Registers the marketplace. **You still install and enable the plugin in Codex.** |
+| Codex Desktop without the CLI | If a Codex config file exists and the marketplace is absent, adds the marketplace and enabled-plugin settings. Restart the app, then verify installation below. |
 
-    codex plugin marketplace add micro1-partners/traj-capture
-    mkdir -p ~/.traj-capture
-    (umask 077; printf '%s\n' "<ENROLLMENT-CODE>" > ~/.traj-capture/enroll-code)
+If you use both Codex CLI and Desktop, the helper takes the CLI path. It does not
+install the plugin through the CLI or approve hooks. A `done` message means the
+helper finished, not that capture is working.
 
-Install and enable `traj-capture` from that marketplace in your Codex plugin manager.
-Review and trust its hooks before expecting capture to run. See the
+### 2. Finish Codex setup
+
+Skip this step if you only use Claude Code.
+
+1. Open the plugin manager in Codex Desktop, or `/plugins` inside Codex CLI.
+2. Find `traj-capture` in the `micro1-traj` marketplace. Install it if needed and
+   confirm it is enabled. Restart Desktop if the helper changed its configuration.
+3. Review and trust the plugin's hooks. In Codex CLI, use `/hooks`.
+
+Installing a plugin does not automatically trust its hooks. See the
 [Codex hook trust instructions](https://learn.chatgpt.com/docs/hooks#review-and-trust-hooks).
+When the helper saved your code, you do not need to create a credential file manually.
 
-Without an existing config, the first session schedules enrollment in the background.
-After enrollment succeeds, capture starts with the next **new** session. The enrollment
-session is not backfilled. Successful enrollment consumes the code file. Codex Desktop has no
-CLI: add the marketplace to `~/.codex/config.toml` instead and restart the app, then do the
-code-file step.
+### 3. Enroll, then start a fresh test session
 
-    [marketplaces.micro1-traj]
-    source_type = "git"
-    source = "https://github.com/micro1-partners/traj-capture.git"
-    ref = "main"
+On a machine without an existing capture config, the first session with active hooks
+schedules enrollment in the background. After enrollment succeeds, capture starts
+with the next **new** session. The enrollment session is not backfilled, and successful
+enrollment consumes the code file. Use a dummy project for the first capture test.
 
-    [plugins."traj-capture@micro1-traj"]
-    enabled = true
-
-The code-file step works for Claude Code too, and it is how IT pre-provisions machines: drop the
-code file alongside the managed plugin settings and nobody types anything. Use both tools?
-Enroll once; they share `~/.traj-capture`.
+Claude Code and Codex share `~/.traj-capture`, so enroll once for both tools.
 
 ### Check it is working
 
@@ -71,14 +69,71 @@ A run ending is not sufficient evidence that capture completed.
 
 * `/traj-capture:setup` (Claude Code) with no code re-runs the connection probe and prints recent
   activity. Same thing from a terminal: `python3 <plugin>/scripts/capture.py setup`.
-* To enroll immediately: `python3 <plugin>/scripts/capture.py setup --code <CODE>`.
+* To enroll immediately: `python3 "<plugin>/scripts/capture.py" setup --code '<CODE>'`.
 * Put `"enabled": false` in the shared config to stop new capture and future upload
   attempts, including retries. An HTTP request already in flight cannot be recalled.
   Raw-body logging in Claude settings is separate; turn it off with
   `python3 <plugin>/scripts/capture.py setup --telemetry off` if required.
 * Codex build without plugin support? Clone this repo and register the hooks by hand (merges into
   `$CODEX_HOME/hooks.json`, idempotent, keeps your other hooks):
-  `python3 traj-capture/plugins/traj-capture/scripts/capture.py install-codex --code <ENROLLMENT-CODE>`
+  `python3 traj-capture/plugins/traj-capture/scripts/capture.py install-codex --code '<ENROLLMENT-CODE>'`.
+  Use this fallback instead of plugin-bundled capture hooks, not alongside them.
+
+### Manual installation
+
+Use these steps instead of the setup helper if your company requires native commands
+or operator-managed configuration. They are not additional quick-start steps.
+
+<details>
+<summary>Show manual setup for Claude Code and Codex</summary>
+
+#### Claude Code
+
+    claude plugin marketplace add micro1-partners/traj-capture
+    claude plugin install traj-capture@micro1-traj
+
+Then, inside Claude Code, enroll immediately:
+
+    /traj-capture:setup <ENROLLMENT-CODE>
+
+`probe ok` verifies storage connectivity, not hook execution. Start a new test session
+and verify the resulting capture as described above.
+
+#### Codex CLI
+
+    codex plugin marketplace add micro1-partners/traj-capture
+
+Install and enable `traj-capture` from `micro1-traj` through `/plugins`, then review
+and trust its hooks through `/hooks`.
+
+#### Codex Desktop without the CLI
+
+Open Codex once to create its configuration. Add the following entries to
+`~/.codex/config.toml` (or `$CODEX_HOME/config.toml` if you use a custom Codex home).
+If either table already exists, update its entries rather than adding duplicate tables:
+
+    [marketplaces.micro1-traj]
+    source_type = "git"
+    source = "https://github.com/micro1-partners/traj-capture.git"
+    ref = "main"
+
+    [plugins."traj-capture@micro1-traj"]
+    enabled = true
+
+Restart Desktop, confirm the plugin is installed and enabled in its plugin manager,
+and review and trust the hooks.
+
+#### Save the enrollment code for Codex
+
+On a machine not yet enrolled, save the code once:
+
+    mkdir -p ~/.traj-capture
+    (umask 077; printf '%s\n' '<ENROLLMENT-CODE>' > ~/.traj-capture/enroll-code)
+
+Follow step 3 above to enroll and start a fresh test session. This code-file method
+also works for Claude Code and IT provisioning. Hook trust is still required in Codex.
+
+</details>
 
 ### What the plugin does with your credential
 
