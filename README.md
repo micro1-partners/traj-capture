@@ -23,12 +23,12 @@ It replies `probe ok` with your company name. Every session from now on is captu
 
 ### Codex
 
-Codex CLI:
-
     codex plugin marketplace add micro1-partners/traj-capture
+    echo "<ENROLLMENT-CODE>" > ~/.traj-capture/enroll-code
 
-Codex Desktop reads its config file instead. Add this to `~/.codex/config.toml` and restart
-the app:
+The plugin enrolls itself on your next session and deletes the file. Codex Desktop has no
+CLI: add the marketplace to `~/.codex/config.toml` instead and restart the app, then do the
+`echo` line.
 
     [marketplaces.micro1-traj]
     source_type = "git"
@@ -38,22 +38,23 @@ the app:
     [plugins."traj-capture@micro1-traj"]
     enabled = true
 
-Then enroll once from a terminal:
-
-    python3 ~/.codex/plugins/cache/micro1-traj/traj-capture/0.2.0/scripts/capture.py setup --code <ENROLLMENT-CODE>
-
-Use both tools? Enroll once; they share the same config in `~/.traj-capture`.
-
-If your Codex build has no plugin support, clone this repo and register the hooks by hand
-(merges into `$CODEX_HOME/hooks.json`, idempotent, keeps your other hooks):
-
-    python3 traj-capture/plugins/traj-capture/scripts/capture.py install-codex --code <ENROLLMENT-CODE>
+The `echo` line works for Claude Code too, and it is how IT pre-provisions machines: drop the
+code file alongside the managed plugin settings and nobody types anything. Use both tools?
+Enroll once; they share `~/.traj-capture`.
 
 ### Check it is working
 
     tail -5 ~/.traj-capture/capture.log
 
 After your next session ends you will see a `finalized` line.
+
+### Troubleshooting
+
+* `/traj-capture:setup` (Claude Code) with no code re-runs the connection probe and prints recent
+  activity. Same thing from a terminal: `python3 <plugin>/scripts/capture.py setup`.
+* Codex build without plugin support? Clone this repo and register the hooks by hand (merges into
+  `$CODEX_HOME/hooks.json`, idempotent, keeps your other hooks):
+  `python3 traj-capture/plugins/traj-capture/scripts/capture.py install-codex --code <ENROLLMENT-CODE>`
 
 ### What the plugin does with your credential
 

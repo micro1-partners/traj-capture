@@ -1,4 +1,5 @@
 ---
+name: setup
 description: Connect traj-capture to the company's storage with an enrollment code, or verify it is connected and show recent capture activity. Use when the user runs /traj-capture:setup or asks whether session capture is working.
 disable-model-invocation: true
 ---

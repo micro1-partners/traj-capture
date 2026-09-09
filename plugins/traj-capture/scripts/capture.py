@@ -79,6 +79,43 @@ def config_path() -> Path:
     return primary
 
 
+def enroll_code_file() -> Path:
+    """Drop the enrollment code here and the plugin enrolls itself on the next
+    session start, then deletes the file. One line for an engineer in any tool
+    (`echo CODE > ~/.traj-capture/enroll-code`) and the seam IT uses to
+    pre-provision machines."""
+    p = os.environ.get("TRAJ_CAPTURE_ENROLL_CODE_FILE")
+    return Path(p) if p else Path.home() / ".traj-capture" / "enroll-code"
+
+
+def maybe_auto_enroll() -> bool:
+    """If there is a pending enroll-code file and no usable config, enroll now.
+    Never raises: a failure is logged and the file is left for the next try."""
+    f = enroll_code_file()
+    if not f.is_file():
+        return False
+    try:
+        if config_path().exists() and load_config().get("sas_url"):
+            f.unlink()  # already enrolled; a stale file is just noise
+            return False
+    except (OSError, json.JSONDecodeError):
+        pass
+    code = f.read_text().strip().split()[0] if f.read_text().strip() else ""
+    if not code:
+        return False
+    try:
+        _, host_hash = identity()
+        enroll_url = enroll_url_from_env()
+        data = enroll(enroll_url, code, host_hash)
+        _write_config_from_enroll({}, data, code, enroll_url)
+        f.unlink()
+        log(f"auto-enroll: enrolled company={data.get('company')} from {f}")
+        return True
+    except Exception as exc:  # noqa: BLE001 — hooks must never break the agent
+        log(f"auto-enroll failed ({exc!r}); leaving {f} for the next session")
+        return False
+
+
 def load_config() -> dict:
     with open(config_path()) as fh:
         cfg = json.load(fh)
@@ -611,6 +648,7 @@ def _sink(cfg: dict) -> Sink:
 
 
 def cmd_start(rest: list[str], stdin_text: str | None) -> int:
+    maybe_auto_enroll()
     cfg = load_config()
     hook = read_hook_input(stdin_text)
     tool = resolve_tool(tool_from_args(rest), hook)

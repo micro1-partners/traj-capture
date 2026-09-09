@@ -102,3 +102,35 @@ def test_enroll_url_defaults_to_portal_and_honors_legacy_key(capture, monkeypatc
     assert capture.enroll_url_from_config({}) == "https://data.micro1.ai"
     assert capture.enroll_url_from_config({"cdp_url": "https://old.test"}) == "https://old.test"
     assert capture.enroll_url_from_config({"enroll_url": "https://new.test", "cdp_url": "https://old.test"}) == "https://new.test"
+
+
+def test_auto_enroll_from_code_file_on_session_start(capture, env, monkeypatch, tmp_path):
+    seen = {}
+    def fake_urlopen(req, timeout=0):
+        seen["body"] = json.loads(req.data)
+        return _Resp(json.dumps({"company": "acme", "sas_url": f"file://{env['sink']}", "expires_at": "2099-01-01T00:00:00Z"}).encode())
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    env["cfg"].unlink()                                   # fresh machine: no config yet
+    code_file = tmp_path / "enroll-code"
+    code_file.write_text("ACME-K7M3-9QZT-4HWX\n")
+    monkeypatch.setenv("TRAJ_CAPTURE_ENROLL_CODE_FILE", str(code_file))
+    assert capture.maybe_auto_enroll() is True
+    assert seen["body"]["code"] == "ACME-K7M3-9QZT-4HWX"
+    assert not code_file.exists()                          # consumed
+    assert json.loads(env["cfg"].read_text())["company"] == "acme"
+    # already enrolled: a stale file is removed without a second enrollment
+    code_file.write_text("ACME-K7M3-9QZT-4HWX"); seen.clear()
+    assert capture.maybe_auto_enroll() is False and not code_file.exists() and seen == {}
+
+
+def test_auto_enroll_failure_keeps_file_and_never_raises(capture, env, monkeypatch, tmp_path):
+    def boom(req, timeout=0):
+        raise OSError("portal down")
+    monkeypatch.setattr(urllib.request, "urlopen", boom)
+    env["cfg"].unlink()
+    code_file = tmp_path / "enroll-code"; code_file.write_text("ACME-K7M3-9QZT-4HWX")
+    monkeypatch.setenv("TRAJ_CAPTURE_ENROLL_CODE_FILE", str(code_file))
+    assert capture.maybe_auto_enroll() is False
+    assert code_file.exists()
+    # and a session start on an un-enrolled machine is a clean no-op, not a crash
+    assert capture.main(["start", "--tool", "claude_code"], stdin_text=json.dumps({"session_id": "s1", "cwd": str(tmp_path)})) == 0
