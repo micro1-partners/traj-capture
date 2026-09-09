@@ -19,7 +19,7 @@ def test_turn_uploads_transcript_and_counts(capture, env, make_repo):
     user_hash, _ = capture.identity()
     remote = env["sink"] / f"trajectories/claude_code/{user_hash}/t1/transcript.jsonl"
     assert remote.read_text() == '{"type":"user"}\n'
-    meta = capture.read_json(env["state"] / "sessions/claude_code/t1/meta.json")
+    meta = capture.read_json(capture.company_root(capture.load_config()) / "sessions/claude_code/t1/meta.json")
     assert meta["turns"] == 1 and meta["uploads"]["transcript.jsonl"] == capture.sha256_file(t)
 
 
@@ -52,4 +52,4 @@ def test_turn_uploads_subagents(capture, env, make_repo):
 def test_turn_without_start_is_ignored(capture, env, tmp_path):
     t = tmp_path / "x.jsonl"; t.write_text("{}\n")
     assert turn(capture, "nostart", t, tmp_path) == 0
-    assert not (env["state"] / "sessions/claude_code/nostart/meta.json").exists()
+    assert not (capture.company_root(capture.load_config()) / "sessions/claude_code/nostart/meta.json").exists()

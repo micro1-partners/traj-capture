@@ -18,7 +18,7 @@ def test_end_in_repo_produces_end_manifest_receipt(capture, env, make_repo):
     (repo / "a.txt").write_text("a\n"); _git(repo, "add", "-A"); _git(repo, "commit", "-q", "-m", "agent adds a")
     (repo / "README.md").write_text("hello\nedited\n")
     assert end(capture, "e1", t, repo) == 0
-    sdir = env["state"] / "sessions/claude_code/e1"
+    sdir = capture.company_root(capture.load_config()) / "sessions/claude_code/e1"
     assert (sdir / "end.marker").exists() and (sdir / "receipt.json").exists()
     user_hash, _ = capture.identity()
     rp = env["sink"] / f"trajectories/claude_code/{user_hash}/e1"
@@ -56,16 +56,16 @@ def test_worker_is_idempotent(capture, env, make_repo):
     repo = make_repo()
     t = start_session(capture, env, repo, "e4")
     end(capture, "e4", t, repo)
-    first = (env["state"] / "sessions/claude_code/e4/receipt.json").read_text()
+    first = (capture.company_root(capture.load_config()) / "sessions/claude_code/e4/receipt.json").read_text()
     capture.main(["worker", "--tool", "claude_code", "--session", "e4"], stdin_text="{}")
-    assert (env["state"] / "sessions/claude_code/e4/receipt.json").read_text() == first
+    assert (capture.company_root(capture.load_config()) / "sessions/claude_code/e4/receipt.json").read_text() == first
 
 
 def test_activity_after_finalize_reopens_and_refinalizes(capture, env, make_repo):
     repo = make_repo()
     t = start_session(capture, env, repo, "e5")
     end(capture, "e5", t, repo)
-    sdir = env["state"] / "sessions/claude_code/e5"
+    sdir = capture.company_root(capture.load_config()) / "sessions/claude_code/e5"
     assert (sdir / "receipt.json").exists()
     t.write_text('{"type":"user"}\n{"type":"assistant"}\n{"type":"user"}\n')
     capture.main(["turn"], stdin_text=json.dumps({"session_id": "e5", "transcript_path": str(t), "cwd": str(repo)}))
@@ -88,7 +88,7 @@ def test_wait_marks_process_exit_and_finalizes_when_agent_dies(capture, env, mak
     monkeypatch.setenv("TRAJ_CAPTURE_WAIT_INTERVAL", "0.1")
     rc = capture.main(["wait", "--tool", "claude_code", "--session", "e6", "--pid", str(agent.pid)], stdin_text="{}")
     assert rc == 0
-    sdir = env["state"] / "sessions/claude_code/e6"
+    sdir = capture.company_root(capture.load_config()) / "sessions/claude_code/e6"
     assert capture.read_json(sdir / "end.marker")["reason"] == "process_exit"
     assert (sdir / "receipt.json").exists()
     user_hash, _ = capture.identity()
@@ -99,8 +99,9 @@ def test_wait_marks_process_exit_and_finalizes_when_agent_dies(capture, env, mak
 def test_finalize_skips_when_another_finalize_holds_the_lock(capture, env, make_repo):
     repo = make_repo()
     t = start_session(capture, env, repo, "e7")
-    sdir = env["state"] / "sessions/claude_code/e7"
-    (sdir / "finalizing.lock").write_text("12345")
+    sdir = capture.company_root(capture.load_config()) / "sessions/claude_code/e7"
+    import os
+    (sdir / "finalizing.lock").write_text(str(os.getpid()))
     assert capture.finalize_session(capture.load_config(), "claude_code", "e7", False) is False
     assert not (sdir / "receipt.json").exists()
     (sdir / "finalizing.lock").unlink()
@@ -113,7 +114,7 @@ def test_agent_diff_excludes_preexisting_dirty_work(capture, env, make_repo):
     (repo / "README.md").write_text("hello\npre-existing human edit\n")   # dirty before the session
     (repo / "wip.txt").write_text("human wip\n")                           # untracked before the session
     t = start_session(capture, env, repo, "e8")
-    start = capture.read_json(env["state"] / "sessions/claude_code/e8/start.json")
+    start = capture.read_json(capture.company_root(capture.load_config()) / "sessions/claude_code/e8/start.json")
     assert len(start["start_tree"]) == 40
     (repo / "agent.txt").write_text("agent wrote this\n")                  # the agent's work
     end(capture, "e8", t, repo)

@@ -50,10 +50,10 @@ def test_missing_start_flags_unrecoverable_state(tmp_path):
     assert "Unrecoverable Starting State" in r["symptoms"]
 
 
-def test_shadow_mode_counts_as_recoverable(tmp_path):
+def test_shadow_hash_alone_is_not_recoverable(tmp_path):
     qc = load()
     r = qc.check(landed(tmp_path, mode="shadow", commits=0))
-    assert "Unrecoverable Starting State" not in r["symptoms"]
+    assert "Unrecoverable Starting State" in r["symptoms"]
 
 
 def test_agent_diff_governs_work_when_present(tmp_path):
